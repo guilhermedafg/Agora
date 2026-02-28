@@ -1,0 +1,17 @@
+{
+  "name": "agora",
+  "short_name": "agora",
+  "description": "Hábitos, exercícios, corpo e diário — tudo agora.",
+  "start_url": "/hoje",
+  "display": "standalone",
+  "background_color": "#f7f5f1",
+  "theme_color": "#2d2926",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
