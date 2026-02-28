@@ -5,15 +5,16 @@ import {
 import Page from '../components/Page'
 
 const ACTIVITIES = [
-  { id: 'pilates', label: 'Pilates',  color: '#6366f1' },
+  { id: 'pilates',  label: 'Pilates',  color: '#6366f1' },
   { id: 'academia', label: 'Academia', color: '#f59e0b' },
-  { id: 'corrida', label: 'Corrida',  color: '#10b981' },
+  { id: 'corrida',  label: 'Corrida',  color: '#10b981' },
 ]
 
 const MONTH_LABELS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
 
 const STORAGE_KEY = 'exercicios'
-const WEEKDAYS = ['S', 'T', 'Q', 'Q', 'S', 'S', 'D']
+const GOALS_KEY   = 'metas-exercicios'
+const WEEKDAYS    = ['S', 'T', 'Q', 'Q', 'S', 'S', 'D']
 
 function pad(n) { return String(n).padStart(2, '0') }
 function fmtDate(y, m, d) { return `${y}-${pad(m + 1)}-${pad(d)}` }
@@ -24,15 +25,18 @@ function todayStr() {
 }
 
 function loadData() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (raw) return JSON.parse(raw)
-  } catch (_) {}
+  try { const r = localStorage.getItem(STORAGE_KEY); if (r) return JSON.parse(r) } catch (_) {}
   return {}
 }
-
 function saveData(data) {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)) } catch (_) {}
+}
+function loadGoals() {
+  try { const r = localStorage.getItem(GOALS_KEY); if (r) return JSON.parse(r) } catch (_) {}
+  return {}
+}
+function saveGoals(goals) {
+  try { localStorage.setItem(GOALS_KEY, JSON.stringify(goals)) } catch (_) {}
 }
 
 function getMonthDays(year, month) {
@@ -42,18 +46,29 @@ function getMonthDays(year, month) {
   return { offset, daysInMonth }
 }
 
+// Weeks of the month grouped by Sunday start. First group may start on any weekday.
+function getWeeksOfMonth(year, month) {
+  const daysInMonth = new Date(year, month + 1, 0).getDate()
+  const weeks = []
+  let current = []
+  for (let day = 1; day <= daysInMonth; day++) {
+    if (new Date(year, month, day).getDay() === 0 && current.length > 0) {
+      weeks.push(current)
+      current = []
+    }
+    current.push(day)
+  }
+  if (current.length > 0) weeks.push(current)
+  return weeks
+}
+
 function computeStreak(days, today) {
   if (!days) return 0
   let streak = 0
   const d = new Date(today + 'T12:00:00')
   while (true) {
     const key = fmtDate(d.getFullYear(), d.getMonth(), d.getDate())
-    if (days[key]) {
-      streak++
-      d.setDate(d.getDate() - 1)
-    } else {
-      break
-    }
+    if (days[key]) { streak++; d.setDate(d.getDate() - 1) } else break
   }
   return streak
 }
@@ -76,19 +91,107 @@ function NavBtn({ onClick, children }) {
   )
 }
 
-function ActivityCard({ activity, days, onToggle, year, month }) {
+function WeeklyTable({ days, goal, year, month }) {
+  const today = todayStr()
+  const weeks = getWeeksOfMonth(year, month)
+
+  return (
+    <div className="mt-4 border-t pt-3" style={{ borderColor: 'rgba(26,25,22,0.07)' }}>
+      <table className="w-full text-[11px]" style={{ borderCollapse: 'collapse' }}>
+        <thead>
+          <tr>
+            {['Semana', 'Sessões', 'Meta', 'Status'].map(h => (
+              <th
+                key={h}
+                className={`pb-1 font-medium ${h === 'Semana' ? 'text-left' : 'text-center'}`}
+                style={{ color: '#1A1916', opacity: 0.35 }}
+              >
+                {h}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {weeks.map((weekDays, i) => {
+            const firstDate = fmtDate(year, month, weekDays[0])
+            const lastDate  = fmtDate(year, month, weekDays[weekDays.length - 1])
+            const isFuture  = firstDate > today
+            const isEnded   = lastDate < today
+
+            const sessions = weekDays.reduce((acc, day) =>
+              acc + (days?.[fmtDate(year, month, day)] ? 1 : 0), 0)
+
+            const hasGoal = goal > 0
+            const met = hasGoal && sessions >= goal
+            const showStatus = !isFuture && isEnded && hasGoal
+
+            const rowBg = showStatus
+              ? met ? 'rgba(16,185,129,0.08)' : 'rgba(239,68,68,0.07)'
+              : 'transparent'
+
+            return (
+              <tr key={i} style={{ backgroundColor: rowBg }}>
+                <td className="py-[5px] pl-1 rounded-l" style={{ color: '#1A1916', opacity: 0.6 }}>
+                  Semana {i + 1}
+                </td>
+                <td className="text-center py-[5px]" style={{ color: '#1A1916' }}>
+                  {sessions}
+                </td>
+                <td className="text-center py-[5px]" style={{ color: '#1A1916', opacity: 0.45 }}>
+                  {hasGoal ? goal : '—'}
+                </td>
+                <td className="text-center py-[5px] pr-1 rounded-r">
+                  {showStatus
+                    ? <span style={{ color: met ? '#059669' : '#dc2626', fontWeight: 700 }}>{met ? '✓' : '✗'}</span>
+                    : <span style={{ color: '#1A1916', opacity: 0.2 }}>—</span>
+                  }
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+function ActivityCard({ activity, days, onToggle, year, month, goal, onGoalChange }) {
   const today = todayStr()
   const { offset, daysInMonth } = getMonthDays(year, month)
   const streak = computeStreak(days, today)
-  const total = countMonth(days, year, month)
+  const total  = countMonth(days, year, month)
 
   return (
     <div className="rounded-lg px-4 py-5 bg-white shadow-sm flex flex-col">
       {/* Header */}
-      <div className="flex items-baseline justify-between mb-4">
-        <h2 className="text-base font-medium" style={{ color: '#1A1916' }}>
-          {activity.label}
-        </h2>
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <h2 className="text-base font-medium" style={{ color: '#1A1916' }}>
+            {activity.label}
+          </h2>
+          {/* Weekly goal input */}
+          <div className="flex items-center gap-1">
+            <input
+              type="number"
+              min="0"
+              max="7"
+              value={goal || ''}
+              onChange={e => {
+                const v = parseInt(e.target.value, 10)
+                onGoalChange(activity.id, isNaN(v) ? 0 : Math.min(7, Math.max(0, v)))
+              }}
+              placeholder="—"
+              className="w-8 text-center text-[11px] rounded border outline-none focus:ring-1"
+              style={{
+                color: '#1A1916',
+                borderColor: 'rgba(26,25,22,0.15)',
+                backgroundColor: 'rgba(26,25,22,0.03)',
+                padding: '2px 0',
+              }}
+            />
+            <span className="text-[10px]" style={{ color: '#1A1916', opacity: 0.35 }}>x/sem</span>
+          </div>
+        </div>
         <div className="flex gap-3">
           <span className="text-[11px] font-medium" style={{ color: '#1A1916', opacity: 0.4 }}>
             {streak}d seguidos
@@ -110,33 +213,19 @@ function ActivityCard({ activity, days, onToggle, year, month }) {
 
       {/* Day grid */}
       <div className="grid grid-cols-7 gap-[3px]">
-        {Array.from({ length: offset }, (_, i) => (
-          <span key={`off-${i}`} />
-        ))}
+        {Array.from({ length: offset }, (_, i) => <span key={`off-${i}`} />)}
 
         {Array.from({ length: daysInMonth }, (_, i) => {
           const day = i + 1
           const dateStr = fmtDate(year, month, day)
-          const done = !!(days && days[dateStr])
+          const done     = !!(days && days[dateStr])
           const isFuture = dateStr > today
-          const isToday = dateStr === today
+          const isToday  = dateStr === today
 
-          let bg = 'transparent'
-          let border = '1.5px solid #E5E2DC'
-          let textOpacity = 0.35
-
-          if (done) {
-            bg = '#1A1916'
-            border = '1.5px solid #1A1916'
-            textOpacity = 1
-          } else if (isFuture) {
-            border = '1.5px solid rgba(26,25,22,0.08)'
-            textOpacity = 0.15
-          } else {
-            bg = 'rgba(26,25,22,0.04)'
-            border = '1.5px solid rgba(26,25,22,0.06)'
-            textOpacity = 0.3
-          }
+          let bg = 'transparent', border = '1.5px solid #E5E2DC', textOpacity = 0.35
+          if (done)        { bg = '#1A1916'; border = '1.5px solid #1A1916'; textOpacity = 1 }
+          else if (isFuture) { border = '1.5px solid rgba(26,25,22,0.08)'; textOpacity = 0.15 }
+          else               { bg = 'rgba(26,25,22,0.04)'; border = '1.5px solid rgba(26,25,22,0.06)'; textOpacity = 0.3 }
 
           return (
             <button
@@ -146,18 +235,16 @@ function ActivityCard({ activity, days, onToggle, year, month }) {
               className={`aspect-square rounded-lg flex items-center justify-center text-[11px] font-medium transition-all duration-150 ${
                 isFuture ? 'cursor-default' : 'cursor-pointer active:scale-90'
               } ${isToday && !done ? 'ring-1 ring-[#1A1916]/30' : ''}`}
-              style={{
-                backgroundColor: bg,
-                border,
-                color: done ? '#F2F0EB' : '#1A1916',
-                opacity: done ? 1 : textOpacity,
-              }}
+              style={{ backgroundColor: bg, border, color: done ? '#F2F0EB' : '#1A1916', opacity: done ? 1 : textOpacity }}
             >
               {day}
             </button>
           )
         })}
       </div>
+
+      {/* Weekly goals table */}
+      <WeeklyTable days={days} goal={goal} year={year} month={month} />
     </div>
   )
 }
@@ -165,65 +252,34 @@ function ActivityCard({ activity, days, onToggle, year, month }) {
 function buildChartData(data, year) {
   return MONTH_LABELS.map((label, month) => {
     const entry = { month: label }
-    ACTIVITIES.forEach(({ id }) => {
-      entry[id] = countMonth(data[id], year, month)
-    })
+    ACTIVITIES.forEach(({ id }) => { entry[id] = countMonth(data[id], year, month) })
     return entry
   })
 }
 
 function FrequencyChart({ data, year }) {
   const chartData = buildChartData(data, year)
-
   return (
     <div className="rounded-lg bg-white shadow-sm px-4 pt-5 pb-4 mt-6">
-      <p
-        className="text-sm font-medium mb-4"
-        style={{ color: '#1A1916' }}
-      >
+      <p className="text-sm font-medium mb-4" style={{ color: '#1A1916' }}>
         Frequência mensal — {year}
       </p>
       <ResponsiveContainer width="100%" height={280}>
         <LineChart data={chartData} margin={{ top: 4, right: 16, left: -16, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="rgba(26,25,22,0.07)" />
-          <XAxis
-            dataKey="month"
-            tick={{ fontSize: 11, fill: 'rgba(26,25,22,0.45)' }}
-            axisLine={false}
-            tickLine={false}
-          />
-          <YAxis
-            allowDecimals={false}
-            tick={{ fontSize: 11, fill: 'rgba(26,25,22,0.45)' }}
-            axisLine={false}
-            tickLine={false}
-          />
+          <XAxis dataKey="month" tick={{ fontSize: 11, fill: 'rgba(26,25,22,0.45)' }} axisLine={false} tickLine={false} />
+          <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: 'rgba(26,25,22,0.45)' }} axisLine={false} tickLine={false} />
           <Tooltip
-            contentStyle={{
-              background: '#fff',
-              border: '1px solid rgba(26,25,22,0.1)',
-              borderRadius: 8,
-              fontSize: 12,
-              color: '#1A1916',
-            }}
+            contentStyle={{ background: '#fff', border: '1px solid rgba(26,25,22,0.1)', borderRadius: 8, fontSize: 12, color: '#1A1916' }}
             itemStyle={{ color: '#1A1916' }}
           />
           <Legend
-            iconType="circle"
-            iconSize={8}
+            iconType="circle" iconSize={8}
             wrapperStyle={{ fontSize: 12, paddingTop: 12 }}
-            formatter={(value) => ACTIVITIES.find(a => a.id === value)?.label ?? value}
+            formatter={v => ACTIVITIES.find(a => a.id === v)?.label ?? v}
           />
           {ACTIVITIES.map(({ id, color }) => (
-            <Line
-              key={id}
-              type="monotone"
-              dataKey={id}
-              stroke={color}
-              strokeWidth={2}
-              dot={{ r: 3, fill: color }}
-              activeDot={{ r: 5 }}
-            />
+            <Line key={id} type="monotone" dataKey={id} stroke={color} strokeWidth={2} dot={{ r: 3, fill: color }} activeDot={{ r: 5 }} />
           ))}
         </LineChart>
       </ResponsiveContainer>
@@ -233,8 +289,9 @@ function FrequencyChart({ data, year }) {
 
 export default function Exercicios() {
   const now = new Date()
-  const [data, setData] = useState(() => loadData())
-  const [viewYear, setViewYear] = useState(now.getFullYear())
+  const [data,      setData]      = useState(() => loadData())
+  const [goals,     setGoalsState] = useState(() => loadGoals())
+  const [viewYear,  setViewYear]  = useState(now.getFullYear())
   const [viewMonth, setViewMonth] = useState(now.getMonth())
 
   const prevMonth = () => {
@@ -253,12 +310,17 @@ export default function Exercicios() {
   const toggle = useCallback((activityId, dateStr) => {
     setData(prev => {
       const actDays = prev[activityId] || {}
-      const next = {
-        ...prev,
-        [activityId]: { ...actDays, [dateStr]: !actDays[dateStr] },
-      }
+      const next = { ...prev, [activityId]: { ...actDays, [dateStr]: !actDays[dateStr] } }
       if (!next[activityId][dateStr]) delete next[activityId][dateStr]
       saveData(next)
+      return next
+    })
+  }, [])
+
+  const setGoal = useCallback((activityId, value) => {
+    setGoalsState(prev => {
+      const next = { ...prev, [activityId]: value }
+      saveGoals(next)
       return next
     })
   }, [])
@@ -281,25 +343,16 @@ export default function Exercicios() {
 
         {/* Month / Year navigation */}
         <div className="flex items-center gap-6 mb-6">
-          {/* Month */}
           <div className="flex items-center gap-1">
             <NavBtn onClick={prevMonth}>‹</NavBtn>
-            <span
-              className="text-sm font-medium capitalize text-center"
-              style={{ color: '#1A1916', minWidth: '6rem' }}
-            >
+            <span className="text-sm font-medium capitalize text-center" style={{ color: '#1A1916', minWidth: '6rem' }}>
               {monthLabel}
             </span>
             <NavBtn onClick={nextMonth}>›</NavBtn>
           </div>
-
-          {/* Year */}
           <div className="flex items-center gap-1">
             <NavBtn onClick={prevYear}>‹</NavBtn>
-            <span
-              className="text-sm font-medium text-center"
-              style={{ color: '#1A1916', minWidth: '3rem' }}
-            >
+            <span className="text-sm font-medium text-center" style={{ color: '#1A1916', minWidth: '3rem' }}>
               {viewYear}
             </span>
             <NavBtn onClick={nextYear}>›</NavBtn>
@@ -316,6 +369,8 @@ export default function Exercicios() {
               onToggle={toggle}
               year={viewYear}
               month={viewMonth}
+              goal={goals[activity.id] || 0}
+              onGoalChange={setGoal}
             />
           ))}
         </div>
