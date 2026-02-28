@@ -1,11 +1,16 @@
 import { useState, useCallback } from 'react'
+import {
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+} from 'recharts'
 import Page from '../components/Page'
 
 const ACTIVITIES = [
-  { id: 'pilates', label: 'Pilates' },
-  { id: 'academia', label: 'Academia' },
-  { id: 'corrida', label: 'Corrida' },
+  { id: 'pilates', label: 'Pilates',  color: '#6366f1' },
+  { id: 'academia', label: 'Academia', color: '#f59e0b' },
+  { id: 'corrida', label: 'Corrida',  color: '#10b981' },
 ]
+
+const MONTH_LABELS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
 
 const STORAGE_KEY = 'exercicios'
 const WEEKDAYS = ['S', 'T', 'Q', 'Q', 'S', 'S', 'D']
@@ -59,17 +64,23 @@ function countMonth(days, year, month) {
   return Object.keys(days).filter(k => k.startsWith(prefix) && days[k]).length
 }
 
-function ActivityCard({ activity, days, onToggle }) {
-  const now = new Date()
-  const year = now.getFullYear()
-  const month = now.getMonth()
+function NavBtn({ onClick, children }) {
+  return (
+    <button
+      onClick={onClick}
+      className="w-7 h-7 flex items-center justify-center rounded-md text-lg leading-none transition-all active:scale-90 hover:bg-black/5"
+      style={{ color: '#1A1916' }}
+    >
+      {children}
+    </button>
+  )
+}
+
+function ActivityCard({ activity, days, onToggle, year, month }) {
   const today = todayStr()
   const { offset, daysInMonth } = getMonthDays(year, month)
-
   const streak = computeStreak(days, today)
   const total = countMonth(days, year, month)
-
-  const monthLabel = new Date(year, month).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
 
   return (
     <div className="rounded-lg px-4 py-5 bg-white shadow-sm flex flex-col">
@@ -87,11 +98,6 @@ function ActivityCard({ activity, days, onToggle }) {
           </span>
         </div>
       </div>
-
-      {/* Month label */}
-      <p className="text-[10px] uppercase tracking-widest font-medium mb-2 capitalize" style={{ color: '#1A1916', opacity: 0.35 }}>
-        {monthLabel}
-      </p>
 
       {/* Weekday headers */}
       <div className="grid grid-cols-7 gap-[3px] mb-1">
@@ -156,22 +162,102 @@ function ActivityCard({ activity, days, onToggle }) {
   )
 }
 
+function buildChartData(data, year) {
+  return MONTH_LABELS.map((label, month) => {
+    const entry = { month: label }
+    ACTIVITIES.forEach(({ id }) => {
+      entry[id] = countMonth(data[id], year, month)
+    })
+    return entry
+  })
+}
+
+function FrequencyChart({ data, year }) {
+  const chartData = buildChartData(data, year)
+
+  return (
+    <div className="rounded-lg bg-white shadow-sm px-4 pt-5 pb-4 mt-6">
+      <p
+        className="text-sm font-medium mb-4"
+        style={{ color: '#1A1916' }}
+      >
+        Frequência mensal — {year}
+      </p>
+      <ResponsiveContainer width="100%" height={280}>
+        <LineChart data={chartData} margin={{ top: 4, right: 16, left: -16, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="rgba(26,25,22,0.07)" />
+          <XAxis
+            dataKey="month"
+            tick={{ fontSize: 11, fill: 'rgba(26,25,22,0.45)' }}
+            axisLine={false}
+            tickLine={false}
+          />
+          <YAxis
+            allowDecimals={false}
+            tick={{ fontSize: 11, fill: 'rgba(26,25,22,0.45)' }}
+            axisLine={false}
+            tickLine={false}
+          />
+          <Tooltip
+            contentStyle={{
+              background: '#fff',
+              border: '1px solid rgba(26,25,22,0.1)',
+              borderRadius: 8,
+              fontSize: 12,
+              color: '#1A1916',
+            }}
+            itemStyle={{ color: '#1A1916' }}
+          />
+          <Legend
+            iconType="circle"
+            iconSize={8}
+            wrapperStyle={{ fontSize: 12, paddingTop: 12 }}
+            formatter={(value) => ACTIVITIES.find(a => a.id === value)?.label ?? value}
+          />
+          {ACTIVITIES.map(({ id, color }) => (
+            <Line
+              key={id}
+              type="monotone"
+              dataKey={id}
+              stroke={color}
+              strokeWidth={2}
+              dot={{ r: 3, fill: color }}
+              activeDot={{ r: 5 }}
+            />
+          ))}
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  )
+}
+
 export default function Exercicios() {
+  const now = new Date()
   const [data, setData] = useState(() => loadData())
+  const [viewYear, setViewYear] = useState(now.getFullYear())
+  const [viewMonth, setViewMonth] = useState(now.getMonth())
+
+  const prevMonth = () => {
+    if (viewMonth === 0) { setViewMonth(11); setViewYear(y => y - 1) }
+    else setViewMonth(m => m - 1)
+  }
+  const nextMonth = () => {
+    if (viewMonth === 11) { setViewMonth(0); setViewYear(y => y + 1) }
+    else setViewMonth(m => m + 1)
+  }
+  const prevYear = () => setViewYear(y => y - 1)
+  const nextYear = () => setViewYear(y => y + 1)
+
+  const monthLabel = new Date(viewYear, viewMonth).toLocaleDateString('pt-BR', { month: 'long' })
 
   const toggle = useCallback((activityId, dateStr) => {
     setData(prev => {
       const actDays = prev[activityId] || {}
       const next = {
         ...prev,
-        [activityId]: {
-          ...actDays,
-          [dateStr]: !actDays[dateStr],
-        },
+        [activityId]: { ...actDays, [dateStr]: !actDays[dateStr] },
       }
-      if (!next[activityId][dateStr]) {
-        delete next[activityId][dateStr]
-      }
+      if (!next[activityId][dateStr]) delete next[activityId][dateStr]
       saveData(next)
       return next
     })
@@ -181,7 +267,7 @@ export default function Exercicios() {
     <Page>
       <div className="flex flex-col min-h-full px-5 md:px-8 pt-10 pb-6">
         {/* Header */}
-        <div className="mb-8">
+        <div className="mb-6">
           <h1
             className="text-4xl md:text-5xl"
             style={{ color: '#1A1916', fontFamily: "'Cormorant Garamond', serif", fontWeight: 300 }}
@@ -193,6 +279,33 @@ export default function Exercicios() {
           </p>
         </div>
 
+        {/* Month / Year navigation */}
+        <div className="flex items-center gap-6 mb-6">
+          {/* Month */}
+          <div className="flex items-center gap-1">
+            <NavBtn onClick={prevMonth}>‹</NavBtn>
+            <span
+              className="text-sm font-medium capitalize text-center"
+              style={{ color: '#1A1916', minWidth: '6rem' }}
+            >
+              {monthLabel}
+            </span>
+            <NavBtn onClick={nextMonth}>›</NavBtn>
+          </div>
+
+          {/* Year */}
+          <div className="flex items-center gap-1">
+            <NavBtn onClick={prevYear}>‹</NavBtn>
+            <span
+              className="text-sm font-medium text-center"
+              style={{ color: '#1A1916', minWidth: '3rem' }}
+            >
+              {viewYear}
+            </span>
+            <NavBtn onClick={nextYear}>›</NavBtn>
+          </div>
+        </div>
+
         {/* Activity cards — 1 col mobile, 3 cols desktop */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {ACTIVITIES.map(activity => (
@@ -201,9 +314,14 @@ export default function Exercicios() {
               activity={activity}
               days={data[activity.id] || {}}
               onToggle={toggle}
+              year={viewYear}
+              month={viewMonth}
             />
           ))}
         </div>
+
+        {/* Line chart */}
+        <FrequencyChart data={data} year={viewYear} />
       </div>
     </Page>
   )
