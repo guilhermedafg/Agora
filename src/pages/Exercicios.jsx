@@ -72,31 +72,31 @@ function ActivityCard({ activity, days, onToggle }) {
   const monthLabel = new Date(year, month).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
 
   return (
-    <div className="rounded-2xl px-4 py-5" style={{ backgroundColor: '#2d292608' }}>
+    <div className="rounded-lg px-4 py-5 bg-white shadow-sm flex flex-col">
       {/* Header */}
       <div className="flex items-baseline justify-between mb-4">
-        <h2 className="text-lg font-semibold" style={{ color: '#2d2926' }}>
+        <h2 className="text-base font-medium" style={{ color: '#1A1916' }}>
           {activity.label}
         </h2>
         <div className="flex gap-3">
-          <span className="text-[11px] font-medium" style={{ color: '#2d2926', opacity: 0.45 }}>
+          <span className="text-[11px] font-medium" style={{ color: '#1A1916', opacity: 0.4 }}>
             {streak}d seguidos
           </span>
-          <span className="text-[11px] font-medium" style={{ color: '#2d2926', opacity: 0.45 }}>
+          <span className="text-[11px] font-medium" style={{ color: '#1A1916', opacity: 0.4 }}>
             {total}x mês
           </span>
         </div>
       </div>
 
       {/* Month label */}
-      <p className="text-[10px] uppercase tracking-widest font-medium mb-2 capitalize" style={{ color: '#2d2926', opacity: 0.35 }}>
+      <p className="text-[10px] uppercase tracking-widest font-medium mb-2 capitalize" style={{ color: '#1A1916', opacity: 0.35 }}>
         {monthLabel}
       </p>
 
       {/* Weekday headers */}
       <div className="grid grid-cols-7 gap-[3px] mb-1">
         {WEEKDAYS.map((w, i) => (
-          <span key={i} className="text-[10px] text-center font-medium" style={{ color: '#2d2926', opacity: 0.25 }}>
+          <span key={i} className="text-[10px] text-center font-medium" style={{ color: '#1A1916', opacity: 0.25 }}>
             {w}
           </span>
         ))}
@@ -116,20 +116,20 @@ function ActivityCard({ activity, days, onToggle }) {
           const isToday = dateStr === today
 
           let bg = 'transparent'
-          let border = '1.5px solid rgba(45,41,38,0.08)'
-          let textOpacity = 0.3
+          let border = '1.5px solid #E5E2DC'
+          let textOpacity = 0.35
 
           if (done) {
-            bg = '#2d2926'
-            border = '1.5px solid #2d2926'
+            bg = '#1A1916'
+            border = '1.5px solid #1A1916'
             textOpacity = 1
           } else if (isFuture) {
-            border = '1.5px solid rgba(45,41,38,0.06)'
+            border = '1.5px solid rgba(26,25,22,0.08)'
             textOpacity = 0.15
           } else {
-            bg = 'rgba(45,41,38,0.04)'
-            border = '1.5px solid rgba(45,41,38,0.04)'
-            textOpacity = 0.25
+            bg = 'rgba(26,25,22,0.04)'
+            border = '1.5px solid rgba(26,25,22,0.06)'
+            textOpacity = 0.3
           }
 
           return (
@@ -139,11 +139,11 @@ function ActivityCard({ activity, days, onToggle }) {
               disabled={isFuture}
               className={`aspect-square rounded-lg flex items-center justify-center text-[11px] font-medium transition-all duration-150 ${
                 isFuture ? 'cursor-default' : 'cursor-pointer active:scale-90'
-              } ${isToday && !done ? 'ring-1 ring-[#2d2926]/25' : ''}`}
+              } ${isToday && !done ? 'ring-1 ring-[#1A1916]/30' : ''}`}
               style={{
                 backgroundColor: bg,
                 border,
-                color: done ? '#f7f5f1' : '#2d2926',
+                color: done ? '#F2F0EB' : '#1A1916',
                 opacity: done ? 1 : textOpacity,
               }}
             >
@@ -179,19 +179,22 @@ export default function Exercicios() {
 
   return (
     <Page>
-      <div className="flex flex-col min-h-full px-5 pt-10 pb-6">
+      <div className="flex flex-col min-h-full px-5 md:px-8 pt-10 pb-6">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-2xl font-semibold" style={{ color: '#2d2926' }}>
+          <h1
+            className="text-4xl md:text-5xl"
+            style={{ color: '#1A1916', fontFamily: "'Cormorant Garamond', serif", fontWeight: 300 }}
+          >
             Exercícios
           </h1>
-          <p className="text-sm mt-1" style={{ color: '#2d2926', opacity: 0.35 }}>
+          <p className="text-sm mt-1" style={{ color: '#1A1916', opacity: 0.4 }}>
             Toca num dia para marcar presença
           </p>
         </div>
 
-        {/* Activity cards */}
-        <div className="flex flex-col gap-4">
+        {/* Activity cards — 1 col mobile, 3 cols desktop */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {ACTIVITIES.map(activity => (
             <ActivityCard
               key={activity.id}

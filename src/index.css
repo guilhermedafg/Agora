@@ -1,9 +1,9 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&display=swap');
 @import "tailwindcss";
 
 @theme {
-  --color-bg: #f7f5f1;
-  --color-text: #2d2926;
+  --color-bg: #F2F0EB;
+  --color-text: #1A1916;
   --font-sans: 'DM Sans', sans-serif;
 }
 
@@ -20,8 +20,8 @@ html {
 }
 
 body {
-  background-color: #f7f5f1;
-  color: #2d2926;
+  background-color: #F2F0EB;
+  color: #1A1916;
   font-family: 'DM Sans', sans-serif;
   -webkit-font-smoothing: antialiased;
   -webkit-text-size-adjust: 100%;
@@ -29,6 +29,16 @@ body {
 
 input, textarea, select, button {
   font-family: inherit;
+}
+
+/* Mobile bottom-nav offset – removed on desktop */
+.content-main {
+  padding-bottom: calc(4rem + env(safe-area-inset-bottom, 0px));
+}
+@media (min-width: 768px) {
+  .content-main {
+    padding-bottom: 0;
+  }
 }
 
 @keyframes fadeIn {
